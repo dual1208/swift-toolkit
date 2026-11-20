@@ -226,6 +226,14 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
             return await super.go(to: direction, options: options)
         }
 
+#if os(macOS)
+        // WKWebView paginates inside the document, not its enclosing NSScrollView.
+        let method = direction == .left ? "scrollLeft" : "scrollRight"
+        let dir = viewModel.readingProgression.rawValue
+        let result = await evaluateScript("readium.\(method)('\(dir)', \(options.animated))")
+        guard case let .success(value) = result else { return false }
+        return (value as? Bool) ?? false
+#else
         let factor: CGFloat = {
             switch direction {
             case .left:
@@ -237,12 +245,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
 
         guard scrollView.bounds.width > 0 else { return false }
         let offsetX = scrollView.bounds.width * factor
-#if os(macOS)
-        let currentX = scrollView.contentView.bounds.origin.x
-        let targetX = round((currentX + offsetX) / offsetX) * offsetX
-#else
         let targetX = round((scrollView.contentOffset.x + offsetX) / offsetX) * offsetX
-#endif
         guard 0 ..< scrollView.contentSize.width ~= targetX else {
             return false
         }
@@ -277,6 +280,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
         }
 
         return true
+#endif
     }
 
     private struct PendingLocation {
@@ -362,7 +366,7 @@ final class EPUBReflowableSpreadView: EPUBSpreadView {
             }
         }
 
-        if locator.text.highlight != nil {
+        if locator.text.highlight != nil || locator.locations.cssSelector != nil {
             return await scroll(toLocator: locator, animated: animated)
             // TODO: find the first fragment matching a tag ID (need a regex)
         } else if let id = locator.locations.fragments.first, !id.isEmpty {
