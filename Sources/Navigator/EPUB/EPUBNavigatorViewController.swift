@@ -289,6 +289,18 @@ open class EPUBNavigatorViewController: InputObservableViewController,
 
     private let readingOrder: [Link]
     public private(set) var currentLocation: Locator?
+
+#if os(macOS)
+    /// Scales the publication in WebKit while retaining the publisher's styles.
+    public var pageZoom: CGFloat = 1 {
+        didSet {
+            guard oldValue != pageZoom, let paginationView else { return }
+            for (_, view) in paginationView.loadedViews {
+                (view as? EPUBSpreadView)?.webView.pageZoom = pageZoom
+            }
+        }
+    }
+#endif
     private let loadPositionsByReadingOrder: () async -> ReadResult<[[Locator]]>
     private var positionsByReadingOrder: [[Locator]] = []
 
@@ -1369,6 +1381,7 @@ extension EPUBNavigatorViewController: PaginationViewDelegate {
             scripts: [],
             animatedLoad: false
         )
+        spreadView.webView.pageZoom = pageZoom
         spreadView.delegate = self
 
         let userContentController = spreadView.webView.configuration.userContentController
